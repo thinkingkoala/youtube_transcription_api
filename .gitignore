@@ -1,0 +1,12 @@
+# Virtual environment
+venv/
+
+# Python bytecode
+*.pyc
+__pycache__/
+
+# Environment variables
+.env
+
+# System files
+.DS_Store
