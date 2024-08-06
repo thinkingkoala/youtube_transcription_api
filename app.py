@@ -6,10 +6,15 @@ from openai import OpenAIError
 import os
 from auth import require_custom_authentication
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
 
 app = Flask(__name__)
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Set up OpenAI API key
 client = OpenAI(
@@ -46,6 +51,12 @@ def improve_text_with_gpt4(text):
         return response.choices[0].message.content
     except OpenAIError as e:
         return f"OpenAI API error: {str(e)}"
+
+# Custom middleware to log request headers and body
+@app.before_request
+def log_request_info():
+    logger.info('Headers: %s', request.headers)
+    logger.info('Body: %s', request.get_data(as_text=True))
 
 @app.route('/transcribe', methods=['POST'])
 @require_custom_authentication
