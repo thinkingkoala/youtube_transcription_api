@@ -1,6 +1,9 @@
-# gunicorn_config.py
 def pre_request(worker, req):
-    if 'content-length' not in req.headers:
-        req.headers['content-length'] = '0'
-    if 'host' not in req.headers:
+    # Normalize header names to lower case for consistency
+    headers = {k.lower(): v for k, v in req.headers.items()}
+    
+    if 'content-length' not in headers:
+        req_body = req.get_data(as_text=False)  # Get the raw request body
+        req.headers['content-length'] = str(len(req_body))
+    if 'host' not in headers:
         req.headers['host'] = 'localhost'
