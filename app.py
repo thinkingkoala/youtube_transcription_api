@@ -52,12 +52,6 @@ def improve_text_with_gpt4(text):
     except OpenAIError as e:
         return f"OpenAI API error: {str(e)}"
 
-# Custom middleware to log request headers and body
-@app.before_request
-def log_request_info():
-    logger.info('Headers: %s', request.headers)
-    logger.info('Body: %s', request.get_data(as_text=True))
-
 @app.route('/transcribe', methods=['POST'])
 @require_custom_authentication
 def transcribe():
@@ -69,10 +63,15 @@ def transcribe():
     if not video_id:
         return jsonify({"error": "Invalid YouTube URL"}), 400
 
-    transcript_text = process_transcript(video_id)
-    improved_text = improve_text_with_gpt4(transcript_text)
+    try:
+        transcript_text = process_transcript(video_id)
+        improved_text = improve_text_with_gpt4(transcript_text)
 
-    return jsonify({"result": improved_text})
+        return jsonify({"result": improved_text})
+    
+    except Exception as e:
+        logger.exception(f"An unexpected error occurred: {e}")
+        return jsonify({"error": "An unexpected error occurred"}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
