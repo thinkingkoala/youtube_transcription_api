@@ -65,7 +65,9 @@ def transcribe():
         return jsonify({"error": "Invalid YouTube URL"}), 400
 
     try:
+        logger.info(f"videoid = {video_id}")
         transcript_text = process_transcript(video_id)
+        logger.info(f"text = {transcript_text}")
         improved_text = improve_text_with_gpt4(transcript_text)
 
         return jsonify({"result": improved_text})
