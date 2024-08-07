@@ -6,7 +6,6 @@ from openai import OpenAIError
 import os
 from auth import require_custom_authentication
 from dotenv import load_dotenv
-from fp.fp import FreeProxy
 import logging
 
 load_dotenv()
@@ -29,13 +28,10 @@ def get_youtube_id(url):
     return video_id.group(1) if video_id else None
 
 def process_transcript(video_id):
-    try:
-        proxy = FreeProxy(rand=True).get()
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, proxies={"http":proxy})
-        full_text = ' '.join([entry['text'] for entry in transcript])
-        return full_text
-    except Exception as e:
-        return str(e)
+    proxy_address=os.environ.get("PROXY")
+    transcript = YouTubeTranscriptApi.get_transcript(video_id, proxies = {"https": proxy_address})
+    full_text = ' '.join([entry['text'] for entry in transcript])
+    return full_text
 
 def improve_text_with_gpt4(text):
     if not client.api_key:
