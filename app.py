@@ -44,7 +44,8 @@ def improve_text_with_gpt4(text):
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": """You are a helpful assistant that improves text formatting and adds punctuation. 
-                 You will be given texts from YouTube transcriptions and your task is to apply good formatting."""},
+                 You will be given texts from YouTube transcriptions and your task is to apply good formatting.
+                 Do NOT modify individual words."""},
                 {"role": "user", "content": f"{text}"}
             ]
         )
