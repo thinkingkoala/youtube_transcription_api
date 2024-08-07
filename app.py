@@ -31,7 +31,7 @@ def get_youtube_id(url):
 def process_transcript(video_id):
     try:
         proxy = FreeProxy(rand=True).get()
-        transcript = YouTubeTranscriptApi.get_transcript(video_id, proxies= [proxy])
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, proxies={"http":proxy})
         full_text = ' '.join([entry['text'] for entry in transcript])
         return full_text
     except Exception as e:
