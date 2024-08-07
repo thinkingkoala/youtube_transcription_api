@@ -6,6 +6,7 @@ from openai import OpenAIError
 import os
 from auth import require_custom_authentication
 from dotenv import load_dotenv
+from fp.fp import FreeProxy
 import logging
 
 load_dotenv()
@@ -29,7 +30,8 @@ def get_youtube_id(url):
 
 def process_transcript(video_id):
     try:
-        transcript = YouTubeTranscriptApi.get_transcript(video_id)
+        proxy = FreeProxy(rand=True).get()
+        transcript = YouTubeTranscriptApi.get_transcript(video_id, proxies= [proxy])
         full_text = ' '.join([entry['text'] for entry in transcript])
         return full_text
     except Exception as e:
