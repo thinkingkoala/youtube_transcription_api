@@ -1,12 +1,13 @@
 from flask import Flask, request, jsonify
 from youtube_transcript_api import YouTubeTranscriptApi
 import re
-from openai import OpenAI
+from openai import OpenAI, AsyncOpenAI
 from openai import OpenAIError
 import os
 from auth import require_custom_authentication
 from dotenv import load_dotenv
 import logging
+import asyncio
 
 load_dotenv()
 
@@ -17,7 +18,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Set up OpenAI API key
-client = OpenAI(
+client = AsyncOpenAI(
     # This is the default and can be omitted
     api_key=os.environ.get("OPENAI_API_KEY"),
 )
@@ -33,23 +34,54 @@ def process_transcript(video_id):
     full_text = ' '.join([entry['text'] for entry in transcript])
     return full_text
 
-def improve_text_with_gpt4(text):
-    if not client.api_key:
-        return "OpenAI API key not found. Please set the OPENAI_API_KEY environment variable."
+def chunk_text(text, max_tokens=4000):
+    """
+    Splits the text into chunks of approximately 16k tokens each.
+    """
+    words = text.split()
+    chunks = []
+    current_chunk = []
 
+    for word in words:
+        # Estimate token count by word count (this is an approximation)
+        if len(current_chunk) + len(word) + 1 > max_tokens:
+            chunks.append(' '.join(current_chunk))
+            current_chunk = []
+        current_chunk.append(word)
+    
+    # Append the last chunk
+    if current_chunk:
+        chunks.append(' '.join(current_chunk))
+
+    return chunks
+
+async def process_chunk(chunk):
     try:
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": """You are a helpful assistant that improves text formatting and adds punctuation. 
                  You will be given texts from YouTube transcriptions and your task is to apply good formatting.
                  Do NOT modify individual words."""},
-                {"role": "user", "content": f"{text}"}
+                {"role": "user", "content": chunk}
             ]
         )
         return response.choices[0].message.content
     except OpenAIError as e:
         return f"OpenAI API error: {str(e)}"
+
+async def improve_text_with_gpt4(text):
+    if not client.api_key:
+        return "OpenAI API key not found. Please set the OPENAI_API_KEY environment variable."
+
+    chunks = chunk_text(text)
+
+    # Use asyncio.gather to run all tasks concurrently
+    tasks = [process_chunk(chunk) for chunk in chunks]
+    improved_chunks = await asyncio.gather(*tasks)
+
+    # Combine all improved chunks back into one text
+    return ' '.join(improved_chunks)
 
 @app.route('/transcribe', methods=['POST'])
 @require_custom_authentication
@@ -66,7 +98,7 @@ def transcribe():
         logger.info(f"videoid = {video_id}")
         transcript_text = process_transcript(video_id)
         logger.info(f"text = {transcript_text}")
-        improved_text = improve_text_with_gpt4(transcript_text)
+        improved_text = asyncio.run(improve_text_with_gpt4(transcript_text))
 
         return jsonify({"result": improved_text})
     
