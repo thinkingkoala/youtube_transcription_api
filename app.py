@@ -8,6 +8,7 @@ from auth import require_custom_authentication
 from dotenv import load_dotenv
 import logging
 import asyncio
+import tiktoken
 
 load_dotenv()
 
@@ -34,21 +35,32 @@ def process_transcript(video_id):
     full_text = ' '.join([entry['text'] for entry in transcript])
     return full_text
 
-def chunk_text(text, max_tokens=4000):
+def chunk_text(text, max_tokens=16000):
     """
-    Splits the text into chunks of approximately 16k tokens each.
+    Splits the text into chunks of approximately max_tokens tokens each.
     """
+    # Initialize tokenizer
+    tokenizer = tiktoken.encoding_for_model("gpt-4o-mini")
+
     words = text.split()
     chunks = []
     current_chunk = []
+    current_token_count = 0
 
     for word in words:
-        # Estimate token count by word count (this is an approximation)
-        if len(current_chunk) + len(word) + 1 > max_tokens:
+        # Estimate token count for the word
+        word_token_count = len(tokenizer.encode(word + " "))  # Add space to ensure accurate token count
+
+        # If adding this word exceeds the max token limit, finalize the current chunk
+        if current_token_count + word_token_count > max_tokens:
             chunks.append(' '.join(current_chunk))
             current_chunk = []
+            current_token_count = 0
+
+        # Add the word to the current chunk
         current_chunk.append(word)
-    
+        current_token_count += word_token_count
+
     # Append the last chunk
     if current_chunk:
         chunks.append(' '.join(current_chunk))
