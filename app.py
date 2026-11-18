@@ -12,6 +12,15 @@ import tiktoken
 
 load_dotenv()
 
+# gpt-4o-mini is retired from the OpenAI API on Jan 14, 2027.
+# gpt-6-luna is OpenAI's recommended replacement (see MIGRATION.md).
+OPENAI_MODEL = "gpt-6-luna"
+
+# tiktoken does not know "gpt-6-luna" yet (it raises KeyError), so fall back to
+# o200k_base, the same encoding gpt-4o-mini used. Token counts here are only
+# used to size the chunks, so this is a safe estimate.
+FALLBACK_ENCODING = "o200k_base"
+
 app = Flask(__name__)
 
 # Set up logging
@@ -40,7 +49,10 @@ def chunk_text(text, max_tokens=16000):
     Splits the text into chunks of approximately max_tokens tokens each.
     """
     # Initialize tokenizer
-    tokenizer = tiktoken.encoding_for_model("gpt-4o-mini")
+    try:
+        tokenizer = tiktoken.encoding_for_model(OPENAI_MODEL)
+    except KeyError:
+        tokenizer = tiktoken.get_encoding(FALLBACK_ENCODING)
 
     words = text.split()
     chunks = []
@@ -70,7 +82,7 @@ def chunk_text(text, max_tokens=16000):
 async def process_chunk(chunk):
     try:
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": """You are a helpful assistant that improves text formatting and adds punctuation. 
                  You will be given texts from YouTube transcriptions and your task is to apply good formatting.
@@ -82,7 +94,7 @@ async def process_chunk(chunk):
     except OpenAIError as e:
         return f"OpenAI API error: {str(e)}"
 
-async def improve_text_with_gpt4(text):
+async def improve_text_with_openai(text):
     if not client.api_key:
         return "OpenAI API key not found. Please set the OPENAI_API_KEY environment variable."
 
@@ -110,7 +122,7 @@ def transcribe():
         logger.info(f"videoid = {video_id}")
         transcript_text = process_transcript(video_id)
         logger.info(f"text = {transcript_text}")
-        improved_text = asyncio.run(improve_text_with_gpt4(transcript_text))
+        improved_text = asyncio.run(improve_text_with_openai(transcript_text))
 
         return jsonify({"result": improved_text})
     
